@@ -4,3 +4,12 @@ p2p_calendar
 Kim Ngo & Dinh Do
 Networks Project 3b: Calendar
 TCP Client/Server
+
+
+client sends to server:
+action
+calendar name
+xml string: <event Date="021505" Start="0900" Duration="2" Info="test1" />
+
+server responds with verifcation
+some string to be displayed
