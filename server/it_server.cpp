@@ -18,15 +18,20 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 
-#define PORTNO "9766"
+#define PORTNO "1203"
+#define BSIZE 256
+
+using namespace std;
 
 int main (int argc, char *argv[]){
 
-	int r, s;
-	char *portno = PORTNO;
+	int r, s, rbyte, sbyte;
+	char const *portno = PORTNO;
 	struct addrinfo hint, *sinfo, *t;
 	struct sockaddr_storage servaddr;
+	char buffer[BSIZE];
 
 	memset (&hint, 0, sizeof(struct addrinfo));
 	hint.ai_family = AF_UNSPEC;
@@ -71,7 +76,7 @@ int main (int argc, char *argv[]){
 
 	while (1) {
 
-		//listen for clients
+		//Listen for Clients
 		if(listen (s, 5) == -1){
 			perror("Listen error\n");
 			exit(1);
@@ -83,6 +88,15 @@ int main (int argc, char *argv[]){
 				perror("accept error\n");
 				return 1;
 		}
+
+		
+		//Receive Message
+		if(rbyte = read(r, &buffer, sizeof(buffer)) < 0){
+				perror("SERVER: Read error\n");
+				return -1;
+		}
+
+		cout << "Message received: " << buffer << endl;
 
 	}
 }
