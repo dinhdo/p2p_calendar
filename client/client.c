@@ -10,7 +10,7 @@
 #include <ctype.h>
 
 
-#define SERVERNAME "student02.cse.nd.edu"
+#define SERVERNAME "student01.cse.nd.edu"
 #define PORT 1203
 
 #define BSIZE 256 // Buffer size
@@ -24,14 +24,16 @@
 // date format MMDDYY
 bool date_format(const char date[]) {
 	if (strlen(date) != 6) return false;
-	while (*date)
-		if (isdigit(*date++) == 0) return false;
+	if (atoi(date) < 10000 && atoi(date) < 130000) return false;
+	// Month must begin with MMDDYY: 01XX
+
 	return true;
 }
 
 // time format HHMM
 bool time_format(const char time[]) {
 	if (strlen(time) != 4) return false;
+	if (atoi(time) < 0) return false;	// Can't be negative
 	while (*time)
 		if (isdigit(*time++) == 0) return false;
 	return true;
@@ -44,15 +46,73 @@ bool duration_format(const char duration[]) {
 }
 
 
-int add(char *argv[]) {
+int send_msg(const int sockfd, const char msg_type, const char msg[], const char cal[]) {
+	uint32_t cal_len, msg_len, response_len;
+	char response[BSIZE];
+	int n;
+	
+	printf("%s\n", cal);
+		// Converting string lengths to network shorts
+	cal_len = htons(strlen(cal));
+	msg_len = htons(strlen(msg));
+	
+	if ((n = write(sockfd, &msg_type, sizeof(char))) < 0) {
+		fprintf(stderr, "Add error when writing calendar length to socket\n");
+		return 0;
+	}
+	
+	// Sending calendar name length to server
+	if ((n = write(sockfd, &cal_len, sizeof(uint32_t))) < 0) {
+		fprintf(stderr, "Add error when writing calendar length to socket\n");
+		return 0;
+	}
+	
+	// Sending calendar name to server
+	if ((n = write(sockfd, cal, cal_len)) < 0) {
+		fprintf(stderr, "Add error when writing calenar name to socket\n");
+		return 0;
+	}
+	
+	// Sending message length to server
+	if ((n = write(sockfd, &msg_len, sizeof(uint32_t))) < 0) {
+		fprintf(stderr, "Add error when writing message length to socket\n");
+		return 0;
+	}
+	
+	// Sending message to server
+	if ((n = write(sockfd, &msg, msg_len)) < 0) {
+		fprintf(stderr, "Add error when writing message to socket\n");
+		return 0;
+	}
+	
+	// Reading response length from server
+	if ((n = read(sockfd, &response_len, sizeof(uint32_t))) < 0) {
+		fprintf(stderr, "Add error when reading response length from socket\n");
+		return 0;
+	}
+	
+	// Reading response from server
+	bzero(response, BSIZE);
+	if ((n = read(sockfd, response, ntohl(response_len))) < 0) {
+		fprintf(stderr, "Add error when reading response from socket\n");
+		return 0;
+	}
+	
+	printf("%s\n", response);
+	return 1;
+}
+
+// adds event to calendar through the server using command line arguments
+int add(const int sockfd, char *argv[]) {
 	char buff[BSIZE];
 	bzero(buff, BSIZE);
+	int n;
 	
 	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
 	else if (!time_format(argv[TIME])) {printf("Time format issue\n"); return 0;}
 	else if (!duration_format(argv[DURATION])) {printf("Duration format issue\n"); return 0;}
 	
-	strcpy(buff, "<add Date=\"");
+	strcpy(buff, "<event Date=\"");
 	strcat(buff, argv[DATE]);
 	strcat(buff, "\" Start=\"");
 	strcat(buff, argv[TIME]);
@@ -62,39 +122,118 @@ int add(char *argv[]) {
 	strcat(buff, argv[EVENT]);
 	strcat(buff, "\" />");
 	
-	printf("Calendar %s: ", argv[CAL]);
-	printf("%s\n", buff);
+	send_msg(sockfd, 'A', buff, argv[CAL]);
 	return 1;
 }
 
-int remove_event(char *argv[]) {
+
+// Removes an event from a calendar through the server with command line arguments
+int remove_event(const int sockfd, char *argv[]) {
+	char buff[BSIZE];
+	bzero(buff, BSIZE);
+	uint32_t cal_len, msg_len, response_len;
+	int n;
+	
+	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
+	else if (!time_format(argv[TIME])) {printf("Time format issue\n"); return 0;}
+	
+	strcpy(buff, "<event Date=\"");
+	strcat(buff, argv[DATE]);
+	strcat(buff, "\" Start=\"");
+	strcat(buff, argv[TIME]);
+	strcat(buff, "\"");
+	
+	send_msg(sockfd, 'R', buff, argv[CAL]);
+	//printf("updating %s: ", argv[CAL]);
+	//printf("%s\n", buff);
+	return 1;
+}
+
+int update(const int sockfd, char *argv[]) {
 	char buff[BSIZE];
 	bzero(buff, BSIZE);
 	
 	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
 	else if (!time_format(argv[TIME])) {printf("Time format issue\n"); return 0;}
+	else if (!duration_format(argv[DURATION])) {printf("Duration format issue\n"); return 0;}
 	
-	strcpy(buff, "<remove Date=\"");
+	strcpy(buff, "<event Date=\"");
 	strcat(buff, argv[DATE]);
 	strcat(buff, "\" Start=\"");
 	strcat(buff, argv[TIME]);
+	strcat(buff, "\" Duration=\"");
+	strcat(buff, argv[DURATION]);
+	strcat(buff, "\" Info=\"");
+	strcat(buff, argv[EVENT]);
 	strcat(buff, "\" />");
 	
-	printf("Calendar %s: ", argv[CAL]);
+	send_msg(sockfd, 'U', buff, argv[CAL]);
+	//printf("updating %s: ", argv[CAL]);
+	//printf("%s\n", buff);
+	return 1;
+	
+}
+
+int get(const int sockfd, char *argv[]) {
+	char buff[BSIZE];
+	bzero(buff, BSIZE);
+	
+	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
+	
+	strcpy(buff, "<event Date=\"");
+	strcat(buff, argv[DATE]);
+	strcat(buff, "\"");
+	
+	send_msg(sockfd, 'G', buff, argv[CAL]);
+	printf("getting %s: ", argv[CAL]);
 	printf("%s\n", buff);
+	
 	return 1;
 }
 
-int update(char *argv[]) {
+int getslow(const int sockfd, char *argv[]) {
+	char buff[BSIZE];
+	bzero(buff, BSIZE);
+	uint32_t cal_len, response_len;
+	char response[BSIZE];
+	int n;
+	
+	// Converting string lengths to network shorts
+	cal_len = htons(strlen(argv[CAL]));
+	
+	if ((n = write(sockfd, "S", sizeof(char))) < 0) {
+		fprintf(stderr, "Add error when writing calendar length to socket\n");
+		return 0;
+	}
+	
+	// Sending calendar name length to server
+	if ((n = write(sockfd, &cal_len, sizeof(uint32_t))) < 0) {
+		fprintf(stderr, "Add error when writing calendar length to socket\n");
+		return 0;
+	}
+	
+	// Sending calendar name to server
+	if ((n = write(sockfd, argv[CAL], cal_len)) < 0) {
+		fprintf(stderr, "Add error when writing calenar name to socket\n");
+		return 0;
+	}
+	
+		// Reading response length from server
+	if ((n = read(sockfd, &response_len, sizeof(uint32_t))) < 0) {
+		fprintf(stderr, "Add error when reading response length from socket\n");
+		return 0;
+	}
+	
+	// Reading response from server
+	bzero(response, BSIZE);
+	if ((n = read(sockfd, response, ntohl(response_len))) < 0) {
+		fprintf(stderr, "Add error when reading response from socket\n");
+		return 0;
+	}
+	
+	printf("getting slow %s\n", argv[CAL]);
 
-}
-
-int get(char *argv[]) {
-
-}
-
-int getslow(char *argv[]) {
-
+	return 1;
 }
 
 int main(int argc, char *argv[]) {
@@ -104,31 +243,6 @@ int main(int argc, char *argv[]) {
 		printf("usage: %s [calendar_name] [action] (data for action)\n", argv[0]);
 		exit(0);
 	}
-	
-	char *action = argv[2];
-	if (strcmp(action, "add") == 0) {
-		if (argc == 7) add(argv);
-		else printf("usage: %s [calendar_name] [add] [date] [start_time] [duration] [event_name]\n", argv[0]);
-	
-	} else if (action == "remove") {
-		if (argc == 5) remove_event(argv);
-		else printf("usage: %s [calendar_name] [remove] [date] [start_time]\n", argv[0]);
-	
-	} else if (action == "update") {
-		if (argc == 5) update(argv);
-		else printf("usage: %s [calendar_name] [update] [date] [start_time]\n", argv[0]);
-	
-	} else if (action == "get") {
-		if (argc == 4) get(argv);
-		else printf("usage: %s [calendar_name] [get] [date]\n", argv[0]);
-	
-	} else if (action == "getslow") {
-		if (argc == 3) getslow(argv);
-		else printf("usage: %s [calendar_name] [getslow]\n", argv[0]);
-
-	} else printf("Invalid action\n");
-
-
 	
 	// TCP Client
 	int sockfd, portno, n;
@@ -159,6 +273,30 @@ int main(int argc, char *argv[]) {
 	
 	
 	
+	char *action = argv[2];
+	if (strcmp(action, "add") == 0) {
+		if (argc == 7) add(sockfd, argv);
+		else printf("usage: %s [calendar_name] [add] [date] [start_time] [duration] [event_name]\n", argv[0]);
+	
+	} else if (strcmp(action, "remove") == 0) {
+		if (argc == 5) remove_event(sockfd, argv);
+		else printf("usage: %s [calendar_name] [remove] [date] [start_time]\n", argv[0]);
+	
+	} else if (strcmp(action, "update") == 0) {
+		if (argc == 7) update(sockfd, argv);
+		else printf("usage: %s [calendar_name] [update] [date] [start_time]\n", argv[0]);
+	
+	} else if (strcmp(action, "get") == 0) {
+		if (argc == 4) get(sockfd, argv);
+		else printf("usage: %s [calendar_name] [get] [date]\n", argv[0]);
+	
+	} else if (strcmp(action, "getslow") == 0) {
+		if (argc == 4) getslow(sockfd, argv);
+		else printf("usage: %s [calendar_name] [getslow]\n", argv[0]);
+
+	} else printf("Invalid action\n");
+
+		
 	close(sockfd);
 
 return 0;
