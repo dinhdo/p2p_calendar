@@ -52,14 +52,20 @@ int send_msg(const int sockfd, const char msg_type, const char msg[], const char
 	int n;
 	
 	printf("%s\n", cal);
-		// Converting string lengths to network shorts
-	cal_len = htons(strlen(cal));
-	msg_len = htons(strlen(msg));
+	printf("%s\n", msg);
+	
+	// Converting string lengths to network shorts
+	cal_len = htonl(strlen(cal));
+	msg_len = htonl(strlen(msg));
 	
 	if ((n = write(sockfd, &msg_type, sizeof(char))) < 0) {
 		fprintf(stderr, "Add error when writing calendar length to socket\n");
 		return 0;
 	}
+
+	uint32_t clen = strlen(cal);
+	uint32_t mlen = strlen(msg);
+
 	
 	// Sending calendar name length to server
 	if ((n = write(sockfd, &cal_len, sizeof(uint32_t))) < 0) {
@@ -68,7 +74,7 @@ int send_msg(const int sockfd, const char msg_type, const char msg[], const char
 	}
 	
 	// Sending calendar name to server
-	if ((n = write(sockfd, cal, cal_len)) < 0) {
+	if ((n = write(sockfd, cal, clen)) < 0) {
 		fprintf(stderr, "Add error when writing calenar name to socket\n");
 		return 0;
 	}
@@ -78,9 +84,10 @@ int send_msg(const int sockfd, const char msg_type, const char msg[], const char
 		fprintf(stderr, "Add error when writing message length to socket\n");
 		return 0;
 	}
+
 	
 	// Sending message to server
-	if ((n = write(sockfd, &msg, msg_len)) < 0) {
+	if ((n = write(sockfd, msg, mlen)) < 0) {
 		fprintf(stderr, "Add error when writing message to socket\n");
 		return 0;
 	}
