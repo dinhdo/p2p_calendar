@@ -28,7 +28,7 @@
 #define PORTNO "1203"
 #define BSIZE 256
 #define DATE 1
-#define START 2
+#define TIME 2
 #define DURATION 3
 #define EVENT 4
 
@@ -48,10 +48,43 @@ vector<string> &split(const string &s, char delim, vector<string> &elems) {
     return elems;
 }
 
+
+// Checks if time conflict with two start times and two durations
+bool time_conflict(string &start1, string &dur1, string &start2, string &dur2) {
+	int time1 = atoi(start1.substr(7, 4).c_str());
+	string duration = dur1.substr(10, dur1.size()-11);
+	int hours = atoi(duration.c_str());
+	int end_time1 = time1 + hours*100;
+
+	if (duration.find(".") != string::npos) {
+		float mins = atof(duration.substr(duration.find(".")).c_str());
+		if (mins > 0) end_time1 += 60.0*mins;
+		if ((end_time1-60) %100 == 0) end_time1 = end_time1 + 100 - 60;
+	}
+	
+	int time2 = atoi(start2.substr(7, 4).c_str());
+	duration = dur2.substr(10, dur2.size()-11);
+	hours = atoi(duration.c_str());
+	int end_time2 = time2 + hours*100;
+
+	if (duration.find(".") != string::npos) {
+		float mins = atof(duration.substr(duration.find(".")).c_str());
+		if (mins > 0) end_time2 += 60.0*mins;
+		if ((end_time2-60) %100 == 0) end_time2 = end_time2 + 100 - 60;
+	}
+	
+	if (time1 <= time2 && time2 < end_time1) return true;
+	if (time2 <= time1 && time1 < end_time2) return true;
+	return false;
+}
+
 int add(const int r, char calname[]) {
-	char buffer[BSIZE];
+	char buffer[BSIZE], response[BSIZE];
 	uint32_t msgsize;
 	int rbyte;
+	bzero(buffer, BSIZE);
+	bzero(response, BSIZE);
+	strcpy(response, "<response>Event added</response>");
 	
 			cout << "In ADD action!" << endl;
 
@@ -94,43 +127,60 @@ int add(const int r, char calname[]) {
 				orig_File.open(origfilename.c_str());
 				string line;
 				while(getline(orig_File, line)) {
+					new_File << line << endl << buffer << endl;
 					if (line.find(tokens[DATE]) != string::npos) {
-						cout << "SAME DATE" << endl;
+						vector<string> current_tokens;
+						split(line, ' ', current_tokens);
+						cout << line << endl;
+						cout << buffer << endl;
+						
+						// Check for time conflict and send warning response message
+						if (time_conflict(tokens[TIME], tokens[DURATION], current_tokens[TIME], current_tokens[DURATION])) {
+							bzero (response, BSIZE);
+							strcpy (response, "<warning>Event ");
+							strcat (response, tokens[EVENT].substr(6, tokens[EVENT].size()-7).c_str());
+							strcat (response, " overlaps with event ");
+							strcat (response, current_tokens[EVENT].substr(6, current_tokens[EVENT].size()-7).c_str());
+							strcat (response, "</warning>");
+							cout << response << endl;
+						}
 					}
-				
+					
 				}
 				orig_File.close();
 			
 			// If calendar file doesn't exist, create, append xml header
 			} else {
-				string xml_header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+				cout << "NEW FILE" << endl;
+				string xml_header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
 				new_File << xml_header;
-				new_File << buffer << endl;
+				new_File << "\n";
+				new_File << buffer;
+				new_File << "\n";
 			}
 			
+			new_File.close();
+			string command = "mv " + replacefilename + " " + origfilename;
+			system (command.c_str());
 
-			cout << "sending response length" << endl;
-			char response[] = "test response message";
 			uint32_t response_len = strlen(response);
 			uint32_t response_len2 = htonl(response_len);
 			
+			// Sending response message length
 			if(rbyte = write(r, &response_len2, sizeof(uint32_t)) < 0){
 				perror("SERVER: write response length error\n");
 				return -1;
 			}
-			cout << "sending response" << endl;
+			// Sending response
 			if(rbyte = write(r, response, response_len) < 0){
 				perror("SERVER: write response error\n");
 				return -1;
 			}
-			
-			cout << "Appended event: " << buffer << endl;
-			new_File.close();
-			string command = "mv " + replacefilename + " " + origfilename;
-			system (command.c_str());
-			//fclose (orig_File);
-			//fclose (new_File);
 }
+
+
+
+
 
 int main (int argc, char *argv[]){
 
@@ -233,7 +283,6 @@ int main (int argc, char *argv[]){
 
 		// Fulfill request
 		if(abuffer == 'A'){
-			
 			add(r, calname);
 			
 		}else if(abuffer == 'R'){
@@ -295,7 +344,7 @@ int main (int argc, char *argv[]){
 			strcpy(filename, calname);
 			strcat(filename, ".xml");	
 			
-			//Try to open file			
+			//Try to open file	
 			ifstream ifile(filename);
 
 			//If the file exists
