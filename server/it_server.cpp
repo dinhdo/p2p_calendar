@@ -19,13 +19,118 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <string>
 #include <iostream>
 #include <fstream>
+#include <vector>
+#include <sstream>
 
 #define PORTNO "1203"
 #define BSIZE 256
+#define DATE 1
+#define START 2
+#define DURATION 3
+#define EVENT 4
 
 using namespace std;
+
+bool file_exists(const char *filename) {
+	ifstream infile(filename);
+	return infile.good();
+}
+
+vector<string> &split(const string &s, char delim, vector<string> &elems) {
+    stringstream ss(s);
+    string item;
+    while (getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+    return elems;
+}
+
+int add(const int r, char calname[]) {
+	char buffer[BSIZE];
+	uint32_t msgsize;
+	int rbyte;
+	
+			cout << "In ADD action!" << endl;
+
+			//Receive XML size
+			if(rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0){
+				perror("Server: Read size error\n");
+				return 1;
+			}
+
+
+			msgsize = ntohl(msgsize);
+			cout << "Read msg size: " << msgsize << endl;
+			
+
+			//Receive XML
+			bzero(buffer, BSIZE);
+			cout << buffer << endl;
+			if(rbyte = read(r, &buffer, msgsize) < 0){
+				perror("SERVER: Read error\n");
+				return -1;
+			}
+
+			buffer[msgsize] = 0;
+			cout << "Received message: " << buffer << endl;
+			
+			// Initializing filenames
+			string xml_ext = ".xml";
+			string origfilename = calname + xml_ext;
+			string replacefilename = "replace.xml";
+			
+			ifstream orig_File;
+			ofstream new_File;
+			new_File.open(replacefilename.c_str());
+
+
+			// If calendar file exists, check for conflicts
+			if (file_exists(origfilename.c_str())) {
+				vector<string> tokens;
+				split(buffer, ' ', tokens);
+				orig_File.open(origfilename.c_str());
+				string line;
+				while(getline(orig_File, line)) {
+					if (line.find(tokens[DATE]) != string::npos) {
+						cout << "SAME DATE" << endl;
+					}
+				
+				}
+				orig_File.close();
+			
+			// If calendar file doesn't exist, create, append xml header
+			} else {
+				string xml_header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+				new_File << xml_header;
+				new_File << buffer << endl;
+			}
+			
+
+			cout << "sending response length" << endl;
+			char response[] = "test response message";
+			uint32_t response_len = strlen(response);
+			uint32_t response_len2 = htonl(response_len);
+			
+			if(rbyte = write(r, &response_len2, sizeof(uint32_t)) < 0){
+				perror("SERVER: write response length error\n");
+				return -1;
+			}
+			cout << "sending response" << endl;
+			if(rbyte = write(r, response, response_len) < 0){
+				perror("SERVER: write response error\n");
+				return -1;
+			}
+			
+			cout << "Appended event: " << buffer << endl;
+			new_File.close();
+			string command = "mv " + replacefilename + " " + origfilename;
+			system (command.c_str());
+			//fclose (orig_File);
+			//fclose (new_File);
+}
 
 int main (int argc, char *argv[]){
 
@@ -129,58 +234,7 @@ int main (int argc, char *argv[]){
 		// Fulfill request
 		if(abuffer == 'A'){
 			
-			cout << "In ADD action!" << endl;
-
-			//Receive XML size
-			if(rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0){
-				perror("Server: Read size error\n");
-				return 1;
-			}
-
-
-			msgsize = ntohl(msgsize);
-			cout << "Read msg size: " << msgsize << endl;
-			
-
-			//Receive XML
-			bzero(buffer, BSIZE);
-			cout << buffer << endl;
-			if(rbyte = read(r, &buffer, msgsize) < 0){
-				perror("SERVER: Read error\n");
-				return -1;
-			}
-
-			buffer[msgsize] = 0;
-			cout << "Received message: " << buffer << endl;
-
-			char insertstr[BSIZE];
-			strcpy(insertstr, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-
-			FILE * xFile;
-
-			//Open file
-			strcat(calname, ".xml");
-
-			cout << "Filename = " << calname << endl;
-	
-			xFile = fopen(calname, "a+");
-
-			cout << "Opened file " << calname << endl;			
-
-
-			//*****Parse through and check if event exists & for conflicts*****
-
-
-			//Append event
-			fputs(insertstr, xFile);
-			fputs("\n", xFile);
-			fputs(buffer, xFile);
-			
-			cout << "Appended event: " << buffer << endl;
-
-			fclose (xFile);
-
-			
+			add(r, calname);
 			
 		}else if(abuffer == 'R'){
 	
