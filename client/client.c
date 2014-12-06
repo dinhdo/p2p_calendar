@@ -177,7 +177,6 @@ int update(const int sockfd, char *argv[]) {
 	//printf("updating %s: ", argv[CAL]);
 	//printf("%s\n", buff);
 	return 1;
-	
 }
 
 int get(const int sockfd, char *argv[]) {
@@ -225,20 +224,29 @@ int getslow(const int sockfd, char *argv[]) {
 		return 0;
 	}
 	
-		// Reading response length from server
-	if ((n = read(sockfd, &response_len, sizeof(uint32_t))) < 0) {
-		fprintf(stderr, "Add error when reading response length from socket\n");
-		return 0;
-	}
-	
-	// Reading response from server
-	bzero(response, BSIZE);
-	if ((n = read(sockfd, response, ntohl(response_len))) < 0) {
-		fprintf(stderr, "Add error when reading response from socket\n");
-		return 0;
-	}
-	
+
 	printf("getting slow %s\n", argv[CAL]);
+	while(1){
+		// Reading response length from server
+		if ((n = read(sockfd, &response_len, sizeof(uint32_t))) < 0) {
+			fprintf(stderr, "Add error when reading response length from socket\n");
+			return 0;
+		}
+	
+		// Reading responses from server
+		bzero(response, BSIZE);
+		if ((n = read(sockfd, response, ntohl(response_len))) < 0) {
+			fprintf(stderr, "Add error when reading response from socket\n");
+			return 0;
+		}
+		
+		if(response[0] == ';') break;	
+		printf("%s\n", response);
+		
+			
+		
+		
+	}
 
 	return 1;
 }
@@ -298,7 +306,7 @@ int main(int argc, char *argv[]) {
 		else printf("usage: %s [calendar_name] [get] [date]\n", argv[0]);
 	
 	} else if (strcmp(action, "getslow") == 0) {
-		if (argc == 4) getslow(sockfd, argv);
+		if (argc == 3) getslow(sockfd, argv);
 		else printf("usage: %s [calendar_name] [getslow]\n", argv[0]);
 
 	} else printf("Invalid action\n");
