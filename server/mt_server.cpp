@@ -19,6 +19,11 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <sstream>
 #include <pthread.h>
 
 #define PORTNO "1203"
@@ -27,11 +32,130 @@ pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
 using namespace std;
 
-void * cal_req (void * param){
-	int r = *((int *) param);
-	pthread_mutex_lock (&mtx);
 
-	pthread_mutex_unlock (&mtx);
+bool file_exists(const char *filename) {
+	ifstream infile(filename);
+	return infile.good();
+}
+
+int get_slow (const int r, char calname[]){
+	
+	cout << "\nFulfilling get_slow request from client" << endl;
+	char buffer[BSIZE];
+	uint32_t msgsize;
+	int rbyte;
+	
+	ifstream orig_File;
+	string xml_ext = ".xml";
+	string filename = calname + xml_ext;
+
+	if (file_exists(filename.c_str())){
+		orig_File.open(filename.c_str());
+		string line;
+		while(getline(orig_File, line)) {					
+			uint32_t response_len = line.length();
+			uint32_t response_len2 = htonl(response_len);
+
+			sleep(1);
+
+			if(rbyte = write(r, &response_len2, sizeof(uint32_t)) < 0){
+				perror("SERVER: write response length error\n");
+				return -1;
+			}
+
+			if(rbyte = write(r, line.c_str(), response_len) < 0){
+				perror("SERVER: write response error\n");
+				return -1;
+			}
+		}
+
+		orig_File.close();		
+
+	} else{
+		char error[BSIZE];
+		strcpy(error, "Calendar does not exist. Cannot get_slow.");
+		uint32_t msgsize = strlen(error);				
+		uint32_t umsgsize = htonl(msgsize);
+		int sbyte;
+		
+		//Send message size
+		if(sbyte = write(r, &umsgsize, sizeof(uint32_t)) < 0){
+			perror("Server: Error in sending error message");
+			return 1;
+		}
+
+		//Send error message
+		cout << "Sending error message: " << error << endl;
+		if(sbyte = write(r, &error, msgsize) < 0){
+			perror("Server: Error in sending error message");
+			return 1;				
+		}
+	}
+
+	char endmsg = ';';
+	uint32_t size = sizeof(endmsg);
+	uint32_t usize = htonl(size);
+	if(rbyte = write(r, &usize, sizeof(uint32_t)) < 0){
+		perror("SERVER: write response length error\n");
+		return -1;
+	}
+	
+	if(rbyte = write(r, &endmsg, size) < 0){
+		perror("SERVER: write response error\n");
+		return -1;	
+	}
+		
+
+}		
+
+void * cal_req (void * param){
+	int rbyte;
+	uint32_t msgsize;
+	char buffer[BSIZE], abuffer, cbuffer[BSIZE];
+	int r = *((int *) param);
+
+	//Receive Action
+	if(rbyte = read(r, &abuffer, sizeof(char)) < 0){
+		perror("SERVER: Read error\n");
+		exit;
+	}
+
+	cout << "Received action: '" << abuffer << "'"<< endl;
+
+
+	//get length of filename
+	if((rbyte=read(r, &msgsize, sizeof(uint32_t))) < 0){
+		perror("read error: lengthname\n");
+		exit(1);
+	}
+
+	msgsize = ntohl(msgsize);
+	cout << "Received length of filename: " << msgsize << endl;
+
+	bzero(cbuffer, BSIZE);
+	//Receive Calendar Name
+	if(rbyte = read(r, &cbuffer, msgsize) < 0){
+		perror("SERVER: Read error\n");
+		exit;
+	}
+
+	cout << "Received calendar name: " << cbuffer << endl;
+	char calname[BSIZE];
+	strcpy(calname, cbuffer);
+	
+	if(abuffer == 'S'){
+
+		int S = get_slow(r, calname);
+
+	} else if(abuffer == 'A'){
+
+	} else if(abuffer == 'R'){
+		
+	} else if(abuffer == 'U'){
+
+	} else if(abuffer == 'G'){
+
+	}
 
 }
 
