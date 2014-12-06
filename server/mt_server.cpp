@@ -26,7 +26,7 @@
 #include <sstream>
 #include <pthread.h>
 
-#define PORTNO "1203"
+#define PORTNO "1202"
 #define BSIZE 256
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
@@ -45,11 +45,15 @@ int get_slow (const int r, char calname[]){
 	uint32_t msgsize;
 	int rbyte;
 	
+	//Generate filename
 	ifstream orig_File;
 	string xml_ext = ".xml";
 	string filename = calname + xml_ext;
 
+	//Check if calendar exists
 	if (file_exists(filename.c_str())){
+
+		//Open file, read file line by line and send to client
 		orig_File.open(filename.c_str());
 		string line;
 		while(getline(orig_File, line)) {					
@@ -72,6 +76,7 @@ int get_slow (const int r, char calname[]){
 		orig_File.close();		
 
 	} else{
+	//If calendar does not exist, send error message to client
 		char error[BSIZE];
 		strcpy(error, "Calendar does not exist. Cannot get_slow.");
 		uint32_t msgsize = strlen(error);				
@@ -92,6 +97,8 @@ int get_slow (const int r, char calname[]){
 		}
 	}
 
+
+	//Send char symbolizing end of events
 	char endmsg = ';';
 	uint32_t size = sizeof(endmsg);
 	uint32_t usize = htonl(size);
@@ -149,11 +156,19 @@ void * cal_req (void * param){
 
 	} else if(abuffer == 'A'){
 
+		//int A = add(r, calname);
+
 	} else if(abuffer == 'R'){
+
+		//int R = remove(r, calname);
 		
 	} else if(abuffer == 'U'){
 
+		//int U = update(r, calname);
+
 	} else if(abuffer == 'G'){
+
+		//int G = get(r, calname);
 
 	}
 
