@@ -51,8 +51,8 @@ int send_msg(const int sockfd, const char msg_type, const char msg[], const char
 	char response[BSIZE];
 	int n;
 	
-	printf("%s\n", cal);
-	printf("%s\n", msg);
+	//printf("%s\n", cal);
+	//printf("%s\n", msg);
 	
 	// Converting string lengths to network shorts
 	uint32_t clen = strlen(cal);
@@ -91,6 +91,41 @@ int send_msg(const int sockfd, const char msg_type, const char msg[], const char
 		return 0;
 	}
 	
+	
+	/* THIS IS FOR GET FUNCTION */
+	if (msg_type == 'G') {
+		char status = 'M', buffer[BSIZE];
+		uint32_t event_len;
+		
+		// Read events while status is M, N for no events
+		char buff[BSIZE];
+		while (status == 'M') {
+
+			// Read status
+			if ((n = read(sockfd, &status, sizeof(char))) < 0) {
+				fprintf(stderr, "Get error when reading date status from socket\n");
+				return 0;
+			}
+			if (status != 'M') break;
+			
+			// Read event length
+			if ((n = read(sockfd, &event_len, sizeof(uint32_t))) < 0) {
+				fprintf(stderr, "Get error when reading events for date length from socket\n");
+				return 0;
+			}
+			// Read event msg
+			event_len = ntohl(event_len);
+			bzero(buff, BSIZE);
+			if ((n = read(sockfd, buff, event_len)) < 0) {
+				fprintf(stderr, "Get error when reading events for date length from socket\n");
+				return 0;
+			}
+			printf("%s\n", buff);
+		}
+	}
+	/* FINISHED GET FUNCTION PORTION */
+	
+	
 	// Reading response length from server
 	if ((n = read(sockfd, &response_len, sizeof(uint32_t))) < 0) {
 		fprintf(stderr, "Add error when reading response length from socket\n");
@@ -103,7 +138,6 @@ int send_msg(const int sockfd, const char msg_type, const char msg[], const char
 		fprintf(stderr, "Add error when reading response from socket\n");
 		return 0;
 	}
-	
 	printf("%s\n", response);
 	return 1;
 }
@@ -174,14 +208,13 @@ int update(const int sockfd, char *argv[]) {
 	strcat(buff, "\" />");
 	
 	send_msg(sockfd, 'U', buff, argv[CAL]);
-	//printf("updating %s: ", argv[CAL]);
-	//printf("%s\n", buff);
 	return 1;
 }
 
 int get(const int sockfd, char *argv[]) {
-	char buff[BSIZE];
+	char buff[BSIZE], status;
 	bzero(buff, BSIZE);
+	uint32_t event_len;
 	
 	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
 	
@@ -190,8 +223,12 @@ int get(const int sockfd, char *argv[]) {
 	strcat(buff, "\"");
 	
 	send_msg(sockfd, 'G', buff, argv[CAL]);
-	printf("getting %s: ", argv[CAL]);
-	printf("%s\n", buff);
+	
+
+
+	
+	//printf("getting %s: ", argv[CAL]);
+	//printf("%s\n", buff);
 	
 	return 1;
 }
@@ -225,7 +262,6 @@ int getslow(const int sockfd, char *argv[]) {
 	}
 	
 
-	printf("getting slow %s\n", argv[CAL]);
 	while(1){
 		// Reading response length from server
 		if ((n = read(sockfd, &response_len, sizeof(uint32_t))) < 0) {
@@ -242,10 +278,6 @@ int getslow(const int sockfd, char *argv[]) {
 		
 		if(response[0] == ';') break;	
 		printf("%s\n", response);
-		
-			
-		
-		
 	}
 
 	return 1;

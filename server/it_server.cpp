@@ -78,7 +78,7 @@ bool time_conflict(string &start1, string &dur1, string &start2, string &dur2) {
 	return false;
 }
 
-int send_response(const int r, char response[]) {
+int send_response(const int r, const char response[]) {
 	int rbyte;
 	uint32_t response_len = strlen(response);
 	uint32_t response_len2 = htonl(response_len);
@@ -96,36 +96,12 @@ int send_response(const int r, char response[]) {
 }
 
 
-int add(const int r, char calname[]) {
-	char buffer[BSIZE], response[BSIZE];
-	uint32_t msgsize;
+int add(const int r, char calname[], char buffer[]) {
+	char response[BSIZE];
 	int rbyte;
-	bzero(buffer, BSIZE);
 	bzero(response, BSIZE);
 	strcpy(response, "<response>Event added</response>");
 
-	//Receive XML size
-	if(rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0){
-		perror("Server: Read size error\n");
-		return 1;
-	}
-
-
-	msgsize = ntohl(msgsize);
-	cout << "Read msg size: " << msgsize << endl;
-	
-
-	//Receive XML
-	bzero(buffer, BSIZE);
-	cout << buffer << endl;
-	if(rbyte = read(r, &buffer, msgsize) < 0){
-		perror("SERVER: Read error\n");
-		return -1;
-	}
-
-	buffer[msgsize] = 0;
-	cout << "Received message: " << buffer << endl;
-	
 	// Initializing filenames
 	string xml_ext = ".xml";
 	string origfilename = calname + xml_ext;
@@ -180,30 +156,11 @@ int add(const int r, char calname[]) {
 	return 1;
 }
 
-int remove_event(const int r, char calname[]) {
-	char buffer[BSIZE], response[BSIZE];
-	uint32_t msgsize;
+int remove_event(const int r, char calname[], char buffer[]) {
+	char response[BSIZE];
 	int rbyte;
-	bzero(buffer, BSIZE);
 	bzero(response, BSIZE);
 	strcpy(response, "<response>Event removed</response>");
-
-	//Receive XML size
-	if(rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0){
-		perror("Server: Read size error\n");
-		return 1;
-	}
-	msgsize = ntohl(msgsize);
-
-	//Receive XML
-	bzero(buffer, BSIZE);
-	cout << buffer << endl;
-	if(rbyte = read(r, &buffer, msgsize) < 0){
-		perror("SERVER: Read error\n");
-		return -1;
-	}
-	buffer[msgsize] = 0;
-	cout << "Message received: " << buffer << endl;
 	
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -248,30 +205,11 @@ int remove_event(const int r, char calname[]) {
 	return 1;
 }
 
-int update(const int r, char calname[]) {
-	char buffer[BSIZE], response[BSIZE];
-	uint32_t msgsize;
+int update(const int r, char calname[], char buffer[]) {
+	char response[BSIZE];
 	int rbyte;
-	bzero(buffer, BSIZE);
 	bzero(response, BSIZE);
 	strcpy(response, "<response>Event updated</response>");
-
-	//Receive XML size
-	if(rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0){
-		perror("Server: Read size error\n");
-		return 1;
-	}
-	msgsize = ntohl(msgsize);
-
-	//Receive XML
-	bzero(buffer, BSIZE);
-	cout << buffer << endl;
-	if(rbyte = read(r, &buffer, msgsize) < 0){
-		perror("SERVER: Read error\n");
-		return -1;
-	}
-	buffer[msgsize] = 0;
-	cout << "Message received: " << buffer << endl;
 	
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -320,8 +258,99 @@ int update(const int r, char calname[]) {
 	return 1;
 }
 
+int get(const int r, char calname[], char buffer[]) {
+	char response[BSIZE];
+	int n;
+	bzero(response, BSIZE);
+	strcpy(response, "<response>No more events</response>");
+	
+	// Initializing filenames
+	string xml_ext = ".xml";
+	string origfilename = calname + xml_ext;
+	
+	ifstream cal_File;
+
+	// Check if calendar exists
+	if (file_exists(origfilename.c_str())) {
+		cal_File.open(origfilename.c_str());
+		string line;
+		
+		// Check if event exists and removes if exists
+		bool date_exists = false;
+		while(getline(cal_File, line)) {
+			if (line.find(buffer) != string::npos) {
+				// Update status to so client knows to contiue reading
+				if ((n = write(r, "M", sizeof(char))) < 0) {fprintf(stderr, "Get error when sending status to socket\n"); return 0;}
+				send_response(r, line.c_str());
+				date_exists = true;
+			}
+		}
+		
+		// Update status to notify client stop reading for calendar events
+		if ((n = write(r, "N", sizeof(char))) < 0) {fprintf(stderr, "Get error when sending status to socket\n"); return 0;}
+		
+		
+		// Error message to client if event doesn't exist
+		if (!date_exists) {
+			bzero (response, BSIZE);
+			strcpy (response, "<response>There are no events for this date</response>");
+		}
+		
+		cal_File.close();
+	
+	// If calendar file doesn't exist
+	} else {
+		bzero (response, BSIZE);
+		strcpy (response, "<error>Calendar does not exist</error>");
+	}
+	
+	send_response(r, response);
+	return 1;
+}
 
 
+
+int get_slow(const int r, char calname[]) {
+/*
+	char response[BSIZE];
+	int n;
+	bzero(response, BSIZE);
+	strcpy(response, "<response>No more events</response>");
+	
+	// Initializing filenames
+	string xml_ext = ".xml";
+	string origfilename = calname + xml_ext;
+	
+	ifstream cal_File;
+
+	// Check if calendar exists
+	if (file_exists(origfilename.c_str())) {
+		cal_File.open(origfilename.c_str());
+		string line;
+		
+		while(getline(cal_File, line)) {
+			// Update status to so client knows to contiue reading
+			if ((n = write(r, "M", sizeof(char))) < 0) {fprintf(stderr, "Get error when sending status to socket\n"); return 0;}
+			send_response(r, line.c_str());
+		}
+		
+		// Update status to notify client stop reading for calendar events
+		if ((n = write(r, "N", sizeof(char))) < 0) {fprintf(stderr, "Get error when sending status to socket\n"); return 0;}
+		
+		cal_File.close();
+	
+	// If calendar file doesn't exist
+	} else {
+		bzero (response, BSIZE);
+		strcpy (response, "<error>Calendar does not exist</error>");
+		// Update status to notify client stop reading for calendar events
+		if ((n = write(r, "N", sizeof(char))) < 0) {fprintf(stderr, "Get error when sending status to socket\n"); return 0;}
+	}
+	
+	send_response(r, response);
+	return 1;
+*/
+}
 
 
 int main (int argc, char *argv[]){
@@ -331,7 +360,7 @@ int main (int argc, char *argv[]){
 	char const *portno = PORTNO;
 	struct addrinfo hint, *sinfo, *t;
 	struct sockaddr_storage servaddr;
-	char buffer[BSIZE], abuffer, cbuffer[BSIZE];
+	char buffer[BSIZE], abuffer, cbuffer[BSIZE], mbuffer[BSIZE];
 
 	memset (&hint, 0, sizeof(struct addrinfo));
 	hint.ai_family = AF_UNSPEC;
@@ -422,58 +451,45 @@ int main (int argc, char *argv[]){
 		cout << "Cal name after strcpy: " << calname << endl;
 
 		cout << "abuffer = " << abuffer << endl;
-
-		// Fulfill request
-		if(abuffer == 'A'){
-			add(r, calname);
-			
-		}else if(abuffer == 'R'){
-			remove_event(r, calname);							
-
-		} else if(abuffer == 'U'){
-			update(r, calname);
-	
-		} else if(abuffer == 'G'){
-			
 		
-		} else if (abuffer == 'S'){
+		//Receive XML size
+		if(rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0){
+			perror("Server: Read size error\n");
+			return 1;
+		}
+		msgsize = ntohl(msgsize);
 
-			char filename [BSIZE];
-			strcpy(filename, calname);
-			strcat(filename, ".xml");	
-			
-			//Try to open file			
-			ifstream ifile(filename);
-
-			//If the file exists
-			if(ifile){
-				//Send all events to client separated by block
-				//1 second intervals
-				
-			} else {
-			//If file does not exist; send error message	
-					
-				char error[BSIZE];
-				strcpy(error, "Calendar does not exist. Cannot remove event.");
-				msgsize = strlen(error);
-				
-				//Send message size
-				umsgsize = htonl(msgsize);
-				if(sbyte = write(r, &umsgsize, sizeof(uint32_t)) < 0){
-					perror("Server: Error in sending error message");
-					return 1;
-				}
-
-				//Send error message
-				if(sbyte = write(r, &error, msgsize) < 0){
-					perror("Server: Error in sending error message");
-					return 1;				
-				}
-			} 
+		if (abuffer == 'S') {
+			get_slow(r, calname);
 		
 		} else {
-			perror("Action sent by client unknown!");
-		}		
+		
+			//Receive XML
+			bzero(mbuffer, BSIZE);
+			if(rbyte = read(r, &mbuffer, msgsize) < 0){
+				perror("SERVER: Read error\n");
+				return -1;
+			}
+			mbuffer[msgsize] = 0;
+			cout << "Message received: " << mbuffer << endl;
 
+
+			// Fulfill request
+			if(abuffer == 'A'){
+				add(r, calname, mbuffer);
+			
+			}else if(abuffer == 'R'){
+				remove_event(r, calname, mbuffer);							
+
+			} else if(abuffer == 'U'){
+				update(r, calname, mbuffer);
+	
+			} else if(abuffer == 'G'){
+				get(r, calname, mbuffer);
+		
+			} else {
+				perror("Action sent by client unknown!");
+			}
+		}
 	}
 }
