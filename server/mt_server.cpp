@@ -26,7 +26,7 @@
 #include <sstream>
 #include <pthread.h>
 
-#define PORTNO "1202"
+#define PORTNO "1203"
 #define BSIZE 256
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
