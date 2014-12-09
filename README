@@ -6,10 +6,89 @@ Networks Project 3b: Calendar
 TCP Client/Server
 9 December 2014
 
+README
+
 client directory:
 	client.c
+		source file for client
 	makefile
+		makefile for client
 	test_script.py
+		test script to run client with several commmands
 	.mycal
+		file to edit server name and server port
 
 server directory:
+	it_server.cpp
+		source file for iterative server
+	mt_server.cpp
+		source file for multithreaded server
+	makefile
+		makefile for server
+
+
+
+Instructions for client:
+	make
+	run client: ./myCal [appropriate commands]
+	[or optional to run ./test_script.py]
+
+Instructions for servers:
+	make
+	run iterative server: ./it_server
+	run multithreaded server: ./mt_server
+
+
+
+Extended feature:
+	We added a group function that allows one client to add an event to multiple calendars including his own. If any calendar listed does not exist, a calendar will be created and the event will be added accordingly.
+	format command:		./myCal [cal1] group [date] [start time] [duration] [event] [cal2] ...
+	example command:	./myCal steve group 121714 0000 24 bday tim martin
+
+
+
+
+CLIENT output results from scenario in project document:
+<response>steve: event added</response>
+<response>steve: event added</response>
+<response>steve: event added</response>
+<response>tim: event added</response>
+<response>tim: event added</response>
+<response>steve: event added</response>
+<error>Time format issue</error>
+<response>tim: event removed</response>
+<response>martin: event added</response>
+<error>steve: event does not exist</error>
+<response>tim: event added</response>
+<error>martin: event does not exist</error>
+<event Date="021605" Start="1500" Duration="0.5" Info="Seminar" />
+<response>No more events</response>
+<event Date="021705" Start="0900" Duration="2.5" Info="Shopping" />
+<response>No more events</response>
+<event Date="021505" Start="0900" Duration="2" Info="Test1" />
+<event Date="021505" Start="1300" Duration="1" Info="Meeting1" />
+<event Date="021505" Start="1600" Duration="2.5" Info="Class" />
+<response>No more events</response>
+<event Date="021505" Start="0900" Duration="2" Info="Test1" />
+<event Date="021505" Start="1300" Duration="1" Info="Meeting1" />
+<event Date="021505" Start="1600" Duration="2.5" Info="Class" />
+<response>No more events</response>
+
+
+SERVER output results from scenario in project document:
+cat martin.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<event Date="021705" Start="0900" Duration="2.5" Info="Shopping" />
+
+cat steve.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<event Date="021505" Start="0900" Duration="2" Info="Test1" />
+<event Date="021505" Start="1300" Duration="1" Info="Meeting1" />
+<event Date="021505" Start="1600" Duration="2.5" Info="Class" />
+<event Date="021605" Start="0800" Duration="1.5" Info="Dentist" />
+
+cat tim.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<event Date="021605" Start="1500" Duration="0.5" Info="Seminar" />
+<event Date="021705" Start="0900" Duration="3" Info="Squash" />
+

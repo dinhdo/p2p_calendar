@@ -178,9 +178,9 @@ int send_msg(const char msg_type, const char msg[], const char cal[]) {
 
 // adds event to calendar through the server using command line arguments
 int add(char *argv[]) {
-	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
-	if (!time_format(argv[TIME])) {printf("Time format issue\n"); return 0;}
-	if (!duration_format(argv[DURATION])) {printf("Duration format issue\n"); return 0;}
+	if (!date_format(argv[DATE])) {printf("<error>Date format issue</error>\n"); return 0;}
+	if (!time_format(argv[TIME])) {printf("<error>Time format issue</error>\n"); return 0;}
+	if (!duration_format(argv[DURATION])) {printf("<error>Duration format issue</error>\n"); return 0;}
 
 	char buff[BSIZE];
 	bzero(buff, BSIZE);
@@ -202,8 +202,8 @@ int add(char *argv[]) {
 
 // Removes an event from a calendar through the server with command line arguments
 int remove_event(char *argv[]) {
-	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
-	else if (!time_format(argv[TIME])) {printf("Time format issue\n"); return 0;}
+	if (!date_format(argv[DATE])) {printf("<error>Date format issue</error>\n"); return 0;}
+	else if (!time_format(argv[TIME])) {printf("<error>Time format issue</error>\n"); return 0;}
 	
 	char buff[BSIZE];
 	bzero(buff, BSIZE);
@@ -219,9 +219,9 @@ int remove_event(char *argv[]) {
 }
 
 int update(char *argv[]) {
-	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
-	else if (!time_format(argv[TIME])) {printf("Time format issue\n"); return 0;}
-	else if (!duration_format(argv[DURATION])) {printf("Duration format issue\n"); return 0;}
+	if (!date_format(argv[DATE])) {printf("<error>Date format issue</error>\n"); return 0;}
+	else if (!time_format(argv[TIME])) {printf("<error>Time format issue</error>\n"); return 0;}
+	else if (!duration_format(argv[DURATION])) {printf("<error>Duration format issue</error>\n"); return 0;}
 	
 	char buff[BSIZE];
 	bzero(buff, BSIZE);
@@ -241,7 +241,7 @@ int update(char *argv[]) {
 }
 
 int get(char *argv[]) {
-	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
+	if (!date_format(argv[DATE])) {printf("<error>Date format issue</error>\n"); return 0;}
 
 	char buff[BSIZE];
 	bzero(buff, BSIZE);
@@ -311,7 +311,7 @@ int get_slow_all(char *argv[]) {
 
 // Gets all events for a specific day in a calendar
 int get_slow_day(char *argv[]) {
-	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
+	if (!date_format(argv[DATE])) {printf("<error>Date format issue</error>\n"); return 0;}
 	
 	char buff[BSIZE];
 	bzero(buff, BSIZE);
@@ -386,9 +386,9 @@ int group_send_msg(const int sockfd, const char msg_type, const char msg[], cons
 
 // Adds group event to all calendars listed
 int group(char *argv[], const int argc) {
-	if (!date_format(argv[DATE])) {printf("Date format issue\n"); return 0;}
-	if (!time_format(argv[TIME])) {printf("Time format issue\n"); return 0;}
-	if (!duration_format(argv[DURATION])) {printf("Duration format issue\n"); return 0;}
+	if (!date_format(argv[DATE])) {printf("<error>Date format issue</error>\n"); return 0;}
+	if (!time_format(argv[TIME])) {printf("<error>Time format issue</error>\n"); return 0;}
+	if (!duration_format(argv[DURATION])) {printf("<error>Duration format issue</error>\n"); return 0;}
 
 	char buff[BSIZE];
 	bzero(buff, BSIZE);

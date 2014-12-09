@@ -194,7 +194,7 @@ int remove_event(const int r, char calname[], char buffer[]) {
 		if (!event_exists) {
 			bzero (response, BSIZE);
 			strcpy (response, "<error>");
-			strcpy (response, calname);
+			strcat (response, calname);
 			strcat (response, ": event does not exist</error>");
 		}
 		
@@ -207,7 +207,7 @@ int remove_event(const int r, char calname[], char buffer[]) {
 	} else {
 		bzero (response, BSIZE);
 		strcpy (response, "<error>");
-		strcpy (response, calname);
+		strcat (response, calname);
 		strcat (response, ": calendar does not exist</error>");
 	}
 	
@@ -252,7 +252,7 @@ int update(const int r, char calname[], char buffer[]) {
 		if (!event_exists) {
 			bzero (response, BSIZE);
 			strcpy (response, "<error>");
-			strcpy (response, calname);
+			strcat (response, calname);
 			strcat (response, ": event does not exist</error>");
 		}
 		
@@ -265,7 +265,7 @@ int update(const int r, char calname[], char buffer[]) {
 	} else {
 		bzero (response, BSIZE);
 		strcpy (response, "<error>");
-		strcpy (response, calname);
+		strcat (response, calname);
 		strcat (response, ": calendar does not exist</error>");
 	}
 	
@@ -311,7 +311,7 @@ int get(const int r, char calname[], char buffer[], bool slow) {
 		if (!date_exists) {
 			bzero (response, BSIZE);
 			strcpy (response, "<error>");
-			strcpy (response, calname);
+			strcat (response, calname);
 			strcat (response, ": event does not exist</error>");
 		}
 		
@@ -321,7 +321,7 @@ int get(const int r, char calname[], char buffer[], bool slow) {
 	} else {
 		bzero (response, BSIZE);
 		strcpy (response, "<error>");
-		strcpy (response, calname);
+		strcat (response, calname);
 		strcat (response, ": calendar does not exist</error>");
 	}
 	
@@ -371,7 +371,7 @@ int get_slow_all(const int r, char calname[]) {
 	//If calendar does not exist, send error message to client
 		char error[BSIZE];
 		strcpy (error, "<error>");
-		strcpy (error, calname);
+		strcat (error, calname);
 		strcat (error, ": calendar does not exist</error>");
 		uint32_t msgsize = strlen(error);				
 		uint32_t umsgsize = htonl(msgsize);
