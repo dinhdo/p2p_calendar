@@ -26,7 +26,8 @@
 #include <sstream>
 #include <pthread.h>
 
-#define PORTNO "1203"
+#include "../client/.mycal"
+
 #define BSIZE 256
 #define DATE 1
 #define TIME 2
@@ -103,7 +104,9 @@ int add(const int r, char calname[], char buffer[]) {
 	char response[BSIZE];
 	int rbyte;
 	bzero(response, BSIZE);
-	strcpy(response, "<response>Event added</response>");
+	strcpy(response, "<response>");
+	strcat(response, calname);
+	strcat(response, ": event added</response>");
 
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -133,7 +136,9 @@ int add(const int r, char calname[], char buffer[]) {
 				// Check for time conflict and send warning response message
 				if (conflict = time_conflict(tokens[TIME], tokens[DURATION], current_tokens[TIME], current_tokens[DURATION])) {
 					bzero (response, BSIZE);
-					strcpy (response, "<warning>Event ");
+					strcpy (response, "<warning>");
+					strcat (response, calname);
+					strcat (response, ": event ");
 					strcat (response, tokens[EVENT].substr(6, tokens[EVENT].size()-7).c_str());
 					strcat (response, " overlaps with event ");
 					strcat (response, current_tokens[EVENT].substr(6, current_tokens[EVENT].size()-7).c_str());
@@ -141,9 +146,8 @@ int add(const int r, char calname[], char buffer[]) {
 
 				}
 			}
-
-			
 		}
+		new_File << buffer << endl;
 		
 		if(!conflict) new_File << buffer << endl;
 		orig_File.close();
@@ -172,7 +176,9 @@ int remove_event(const int r, char calname[], char buffer[]) {
 	char response[BSIZE];
 	int rbyte;
 	bzero(response, BSIZE);
-	strcpy(response, "<response>Event removed</response>");
+	strcpy(response, "<response>");
+	strcat(response, calname);
+	strcat(response, ": event removed</response>");
 	
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -201,7 +207,9 @@ int remove_event(const int r, char calname[], char buffer[]) {
 		// Error message to client if event doesn't exist
 		if (!event_exists) {
 			bzero (response, BSIZE);
-			strcpy (response, "<error>Event does not exist</error>");
+			strcpy (response, "<error>");
+			strcpy (response, calname);
+			strcpy (response, ": event does not exist</error>");
 		}
 		
 		orig_File.close();
@@ -212,7 +220,9 @@ int remove_event(const int r, char calname[], char buffer[]) {
 	// If calendar file doesn't exist
 	} else {
 		bzero (response, BSIZE);
-		strcpy (response, "<error>Calendar does not exist</error>");
+		strcpy (response, "<error>");
+		strcpy (response, calname);
+		strcat (response, ": calendar does not exist</error>");
 	}
 	
 	pthread_mutex_unlock (&mtx);
@@ -225,7 +235,9 @@ int update(const int r, char calname[], char buffer[]) {
 	char response[BSIZE];
 	int rbyte;
 	bzero(response, BSIZE);
-	strcpy(response, "<response>Event updated</response>");
+	strcpy(response, "<response>");
+	strcat(response, calname);
+	strcat(response, ": event updated</response>");
 	
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -258,7 +270,9 @@ int update(const int r, char calname[], char buffer[]) {
 		// Error message to client if event doesn't exist
 		if (!event_exists) {
 			bzero (response, BSIZE);
-			strcpy (response, "<error>Event does not exist</error>");
+			strcpy (response, "<error>");
+			strcpy (response, calname);
+			strcat (response, ": event does not exist</error>");
 		}
 		
 		orig_File.close();
@@ -269,7 +283,9 @@ int update(const int r, char calname[], char buffer[]) {
 	// If calendar file doesn't exist
 	} else {
 		bzero (response, BSIZE);
-		strcpy (response, "<error>Calendar does not exist</error>");
+		strcpy (response, "<error>");
+		strcpy (response, calname);
+		strcat (response, ": calendar does not exist</error>");
 	}
 	
 	pthread_mutex_unlock (&mtx);
@@ -323,7 +339,9 @@ int get(const int r, char calname[], char buffer[]) {
 	// If calendar file doesn't exist
 	} else {
 		bzero (response, BSIZE);
-		strcpy (response, "<error>Calendar does not exist</error>");
+		strcpy (response, "<error>");
+		strcpy (response, calname);
+		strcat (response, ": calendar does not exist</error>");
 	}
 
 	pthread_mutex_unlock (&mtx);
@@ -371,7 +389,9 @@ int getslow (const int r, char calname[]){
 	} else{
 	//If calendar does not exist, send error message to client
 		char error[BSIZE];
-		strcpy(error, "Calendar does not exist. Cannot get_slow.");
+		strcpy (error, "<error>");
+		strcpy (error, calname);
+		strcat (error, ": calendar does not exist</error>");
 		uint32_t msgsize = strlen(error);				
 		uint32_t umsgsize = htonl(msgsize);
 		int sbyte;
@@ -400,7 +420,7 @@ int getslow (const int r, char calname[]){
 	
 	if(rbyte = write(r, &endmsg, size) < 0){
 		perror("SERVER: write response error\n");
-		return -1;	
+		return -1;
 	}
 
 	return 1;
@@ -475,7 +495,7 @@ void * cal_req (void * param){
 		
 		} else if(abuffer == 'G'){
 			get(r, calname, mbuffer);
-			
+		
 		} else {
 			perror("Action sent by client unknown!");
 		}

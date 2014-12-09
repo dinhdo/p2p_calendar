@@ -25,7 +25,8 @@
 #include <vector>
 #include <sstream>
 
-#define PORTNO "1203"
+#include "../client/.mycal"
+
 #define BSIZE 256
 #define DATE 1
 #define TIME 2
@@ -84,23 +85,25 @@ int send_response(const int r, const char response[]) {
 	uint32_t response_len2 = htonl(response_len);
 		
 	// Sending response message length
-	if(rbyte = write(r, &response_len2, sizeof(uint32_t)) < 0){
+	if((rbyte = write(r, &response_len2, sizeof(uint32_t)) < 0)){
 		perror("SERVER: write response length error\n");
 		return -1;
 	}
 	// Sending response
-	if(rbyte = write(r, response, response_len) < 0){
+	if((rbyte = write(r, response, response_len) < 0)){
 		perror("SERVER: write response error\n");
 		return -1;
 	}
+	return 1;
 }
 
 
 int add(const int r, char calname[], char buffer[]) {
 	char response[BSIZE];
-	int rbyte;
 	bzero(response, BSIZE);
-	strcpy(response, "<response>Event added</response>");
+	strcpy(response, "<response>");
+	strcat(response, calname);
+	strcat(response, ": event added</response>");
 
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -121,12 +124,13 @@ int add(const int r, char calname[], char buffer[]) {
 		int conflict = 0;
 		while(getline(orig_File, line)) {
 			new_File << line << endl;
+			
 			if (line.find(tokens[DATE]) != string::npos) {
 				vector<string> current_tokens;
 				split(line, ' ', current_tokens);
 				
 				// Check for time conflict and send warning response message
-				if (conflict = time_conflict(tokens[TIME], tokens[DURATION], current_tokens[TIME], current_tokens[DURATION])) {
+				if ((conflict = time_conflict(tokens[TIME], tokens[DURATION], current_tokens[TIME], current_tokens[DURATION]))) {
 					bzero (response, BSIZE);
 					strcpy (response, "<warning>Event ");
 					strcat (response, tokens[EVENT].substr(6, tokens[EVENT].size()-7).c_str());
@@ -136,11 +140,8 @@ int add(const int r, char calname[], char buffer[]) {
 
 				}
 			}
-
-			
 		}
-		
-		if(!conflict) new_File << buffer << endl;
+		new_File << buffer << endl;
 		orig_File.close();
 	
 	// If calendar file doesn't exist, create, append xml header
@@ -162,9 +163,10 @@ int add(const int r, char calname[], char buffer[]) {
 
 int remove_event(const int r, char calname[], char buffer[]) {
 	char response[BSIZE];
-	int rbyte;
 	bzero(response, BSIZE);
-	strcpy(response, "<response>Event removed</response>");
+	strcpy(response, "<response>");
+	strcat(response, calname);
+	strcat(response, ": event removed</response>");
 	
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -191,7 +193,9 @@ int remove_event(const int r, char calname[], char buffer[]) {
 		// Error message to client if event doesn't exist
 		if (!event_exists) {
 			bzero (response, BSIZE);
-			strcpy (response, "<error>Event does not exist</error>");
+			strcpy (response, "<error>");
+			strcpy (response, calname);
+			strcat (response, ": event does not exist</error>");
 		}
 		
 		orig_File.close();
@@ -202,7 +206,9 @@ int remove_event(const int r, char calname[], char buffer[]) {
 	// If calendar file doesn't exist
 	} else {
 		bzero (response, BSIZE);
-		strcpy (response, "<error>Calendar does not exist</error>");
+		strcpy (response, "<error>");
+		strcpy (response, calname);
+		strcat (response, ": calendar does not exist</error>");
 	}
 	
 	send_response(r, response);
@@ -211,9 +217,10 @@ int remove_event(const int r, char calname[], char buffer[]) {
 
 int update(const int r, char calname[], char buffer[]) {
 	char response[BSIZE];
-	int rbyte;
 	bzero(response, BSIZE);
-	strcpy(response, "<response>Event updated</response>");
+	strcpy(response, "<response>");
+	strcat(response, calname);
+	strcat(response, ": event updated</response>");
 	
 	// Initializing filenames
 	string xml_ext = ".xml";
@@ -244,7 +251,9 @@ int update(const int r, char calname[], char buffer[]) {
 		// Error message to client if event doesn't exist
 		if (!event_exists) {
 			bzero (response, BSIZE);
-			strcpy (response, "<error>Event does not exist</error>");
+			strcpy (response, "<error>");
+			strcpy (response, calname);
+			strcat (response, ": event does not exist</error>");
 		}
 		
 		orig_File.close();
@@ -255,14 +264,16 @@ int update(const int r, char calname[], char buffer[]) {
 	// If calendar file doesn't exist
 	} else {
 		bzero (response, BSIZE);
-		strcpy (response, "<error>Calendar does not exist</error>");
+		strcpy (response, "<error>");
+		strcpy (response, calname);
+		strcat (response, ": calendar does not exist</error>");
 	}
 	
 	send_response(r, response);
 	return 1;
 }
 
-int get(const int r, char calname[], char buffer[]) {
+int get(const int r, char calname[], char buffer[], bool slow) {
 	char response[BSIZE];
 	int n;
 	bzero(response, BSIZE);
@@ -283,6 +294,8 @@ int get(const int r, char calname[], char buffer[]) {
 		bool date_exists = false;
 		while(getline(cal_File, line)) {
 			if (line.find(buffer) != string::npos) {
+				if (slow) sleep(1);
+
 				// Update status to so client knows to contiue reading
 				if ((n = write(r, "M", sizeof(char))) < 0) {fprintf(stderr, "Get error when sending status to socket\n"); return 0;}
 				send_response(r, line.c_str());
@@ -297,7 +310,9 @@ int get(const int r, char calname[], char buffer[]) {
 		// Error message to client if event doesn't exist
 		if (!date_exists) {
 			bzero (response, BSIZE);
-			strcpy (response, "<response>There are no events for this date</response>");
+			strcpy (response, "<error>");
+			strcpy (response, calname);
+			strcat (response, ": event does not exist</error>");
 		}
 		
 		cal_File.close();
@@ -305,7 +320,9 @@ int get(const int r, char calname[], char buffer[]) {
 	// If calendar file doesn't exist
 	} else {
 		bzero (response, BSIZE);
-		strcpy (response, "<error>Calendar does not exist</error>");
+		strcpy (response, "<error>");
+		strcpy (response, calname);
+		strcat (response, ": calendar does not exist</error>");
 	}
 	
 	send_response(r, response);
@@ -314,10 +331,8 @@ int get(const int r, char calname[], char buffer[]) {
 
 
 
-int get_slow(const int r, char calname[]) {
+int get_slow_all(const int r, char calname[]) {
 	
-	char buffer[BSIZE];
-	uint32_t msgsize;
 	int rbyte;
 	
 	//Generate filename
@@ -331,18 +346,20 @@ int get_slow(const int r, char calname[]) {
 		//Open file, read file line by line and send to client
 		orig_File.open(filename.c_str());
 		string line;
-		while(getline(orig_File, line)) {					
+		getline(orig_File, line);	// Get first line xml header line
+		
+		while(getline(orig_File, line)) {
 			uint32_t response_len = line.length();
 			uint32_t response_len2 = htonl(response_len);
 
 			sleep(1);
 
-			if(rbyte = write(r, &response_len2, sizeof(uint32_t)) < 0){
+			if((rbyte = write(r, &response_len2, sizeof(uint32_t)) < 0)){
 				perror("SERVER: write response length error\n");
 				return -1;
 			}
 
-			if(rbyte = write(r, line.c_str(), response_len) < 0){
+			if((rbyte = write(r, line.c_str(), response_len) < 0)){
 				perror("SERVER: write response error\n");
 				return -1;
 			}
@@ -353,50 +370,109 @@ int get_slow(const int r, char calname[]) {
 	} else{
 	//If calendar does not exist, send error message to client
 		char error[BSIZE];
-		strcpy(error, "Calendar does not exist. Cannot get_slow.");
+		strcpy (error, "<error>");
+		strcpy (error, calname);
+		strcat (error, ": calendar does not exist</error>");
 		uint32_t msgsize = strlen(error);				
 		uint32_t umsgsize = htonl(msgsize);
 		int sbyte;
 		
 		//Send message size
-		if(sbyte = write(r, &umsgsize, sizeof(uint32_t)) < 0){
+		if((sbyte = write(r, &umsgsize, sizeof(uint32_t)) < 0)){
 			perror("Server: Error in sending error message");
 			return 1;
 		}
 
 		//Send error message
-		if(sbyte = write(r, &error, msgsize) < 0){
+		if((sbyte = write(r, &error, msgsize) < 0)){
 			perror("Server: Error in sending error message");
 			return 1;				
 		}
 	}
 
-
 	//Send char symbolizing end of events
 	char endmsg = ';';
 	uint32_t size = sizeof(endmsg);
 	uint32_t usize = htonl(size);
-	if(rbyte = write(r, &usize, sizeof(uint32_t)) < 0){
+	if((rbyte = write(r, &usize, sizeof(uint32_t)) < 0)){
 		perror("SERVER: write response length error\n");
 		return -1;
 	}
 	
-	if(rbyte = write(r, &endmsg, size) < 0){
+	if((rbyte = write(r, &endmsg, size) < 0)){
 		perror("SERVER: write response error\n");
 		return -1;	
 	}
-		
+	return 1;
+}
+
+
+// Adds event to all calendars in group
+int group(const int r, char calname[], char buffer[]) {
+	int rbyte;
+	uint32_t msgsize;
+	char status, abuffer, cbuffer[BSIZE], mbuffer[BSIZE];
+	
+	// Adds first event to calendar
+	add(r, calname, buffer);
+	
+	// Read initial status of calendars to add	
+	if ((rbyte = read(r, &status, sizeof(char)) < 0)) {
+				fprintf(stderr, "Group error when reading stop status from socket\n");
+				return 0;
+	}
+	
+	// Adds event to following calendars
+	while (status == 'M') {
+		// Receive Action
+		if((rbyte = read(r, &abuffer, sizeof(char)) < 0)){
+			perror("SERVER: Read error\n");
+			exit(1);
+		}
+		// Get Calendar name length
+		if((rbyte=read(r, &msgsize, sizeof(uint32_t))) < 0){
+			perror("read error: lengthname\n");
+			exit(1);
+		}
+		msgsize = ntohl(msgsize);
+		bzero(cbuffer, BSIZE);
+		// Receive Calendar Name
+		if((rbyte = read(r, &cbuffer, msgsize) < 0)){
+			perror("SERVER: Read error\n");
+			exit(1);
+		}
+		//Receive XML size
+		if((rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0)){
+			perror("Server: Read size error\n");
+			exit(1);
+		}
+		msgsize = ntohl(msgsize);
+		//Receive XML
+		bzero(mbuffer, BSIZE);
+		if((rbyte = read(r, &mbuffer, msgsize) < 0)){
+			perror("SERVER: Read error\n");
+			exit(1);
+		}
+		// Adds to respective calendars
+		add(r, cbuffer, mbuffer);
+		// Read updated status
+		if ((rbyte = read(r, &status, sizeof(char))) < 0) {
+					fprintf(stderr, "Group error when reading stop status from socket\n");
+					return 0;
+		}
+	}
+	return 1;
 }
 
 
 int main (int argc, char *argv[]){
 
-	int r, s, rbyte, sbyte;
-	uint32_t msgsize, umsgsize;
+	int r, s, rbyte;
+	uint32_t msgsize;
 	char const *portno = PORTNO;
 	struct addrinfo hint, *sinfo, *t;
 	struct sockaddr_storage servaddr;
-	char buffer[BSIZE], abuffer, cbuffer[BSIZE], mbuffer[BSIZE];
+	char abuffer, cbuffer[BSIZE], mbuffer[BSIZE];
 
 	memset (&hint, 0, sizeof(struct addrinfo));
 	hint.ai_family = AF_UNSPEC;
@@ -456,7 +532,7 @@ int main (int argc, char *argv[]){
 
 		
 		//Receive Action
-		if(rbyte = read(r, &abuffer, sizeof(char)) < 0){
+		if((rbyte = read(r, &abuffer, sizeof(char)) < 0)){
 				perror("SERVER: Read error\n");
 				return -1;
 		}
@@ -471,7 +547,7 @@ int main (int argc, char *argv[]){
 
 		bzero(cbuffer, BSIZE);
 		//Receive Calendar Name
-		if(rbyte = read(r, &cbuffer, msgsize) < 0){
+		if((rbyte = read(r, &cbuffer, msgsize) < 0)){
 				perror("SERVER: Read error\n");
 				return -1;
 		}
@@ -479,13 +555,19 @@ int main (int argc, char *argv[]){
 		char calname[BSIZE];
 		strcpy(calname, cbuffer);
 		
+		// getslow for all calendar events
 		if(abuffer == 'S'){
-			get_slow(r, calname);
+			get_slow_all(r, calname);
+			continue;
+		
+		// getslow for all calendar events on a specific date
+		} else if (abuffer == 's') {
+			get(r, calname, mbuffer, true);
 			continue;
 		}
 
 		//Receive XML size
-		if(rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0){
+		if((rbyte = read(r, &msgsize, sizeof(uint32_t)) < 0)){
 			perror("Server: Read size error\n");
 			return 1;
 		}
@@ -494,7 +576,7 @@ int main (int argc, char *argv[]){
 		
 		//Receive XML
 		bzero(mbuffer, BSIZE);
-		if(rbyte = read(r, &mbuffer, msgsize) < 0){
+		if((rbyte = read(r, &mbuffer, msgsize) < 0)) {
 			perror("SERVER: Read error\n");
 			return -1;
 		}
@@ -513,7 +595,10 @@ int main (int argc, char *argv[]){
 			update(r, calname, mbuffer);
 	
 		} else if(abuffer == 'G'){
-			get(r, calname, mbuffer);
+			get(r, calname, mbuffer, false);
+
+		} else if(abuffer == 'T'){
+			group(r, calname, mbuffer);
 		
 		} else {
 			perror("Action sent by client unknown!");

@@ -1,0 +1,8 @@
+#ifndef MYCAL
+#define MYCAL
+
+#define SERVERNAME "student02.cse.nd.edu"
+#define PORT 1203
+#define PORTNO "1203"
+
+#endif
